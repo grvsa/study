@@ -8,6 +8,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.image.ImageObserver;
 import java.io.IOException;
+// Try with GIT features
 
 public class GameWindow extends JFrame {
 
