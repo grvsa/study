@@ -24,6 +24,7 @@ public class Main {
     public static int calculate(int a,int b,int c,int d){
 //        3. Написать метод вычисляющий выражение a * (b + (c / d)) и
 //        возвращающий результат,где a, b, c, d – входные параметры этого метода;
+//        Для других типов аналогично.
 
         return a * (b + (int) (c / d));
     }
