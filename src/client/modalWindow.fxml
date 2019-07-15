@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.web.WebView?>
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="client.ModalWindow"
+      prefHeight="200.0" prefWidth="300.0">
+    <WebView fx:id="chatArea" VBox.vgrow="ALWAYS" prefWidth="300.0" prefHeight="174.0"></WebView>
+    <HBox>
+        <TextField fx:id="textField" onAction="#sendMessage" HBox.hgrow="ALWAYS"></TextField>
+        <Button fx:id="btnSend" prefWidth="80.0" onAction="#sendMessage" HBox.hgrow="ALWAYS" text="Send"></Button>
+    </HBox>
+</VBox>
