@@ -1,0 +1,13 @@
+2019-07-29 13:03:08 INFO  root:93 - nick1 Subscribed for broadcast
+2019-07-29 13:03:27 INFO  root:66 - New Client connected
+2019-07-29 13:03:27 INFO  root:93 - nick2 Subscribed for broadcast
+2019-07-29 13:03:45 INFO  ClientHandler:71 - User: nick2 add to ban list : nick1
+2019-07-29 13:03:45 INFO  ClientHandler:71 - User: nick2 add to ban list : nick1
+2019-07-29 13:03:47 INFO  ClientHandler:75 - User: nick2 remove from ban list : nick1
+2019-07-29 13:03:47 INFO  ClientHandler:75 - User: nick2 remove from ban list : nick1
+2019-07-29 13:03:54 INFO  ClientHandler:120 - Request to disconnect
+2019-07-29 13:03:54 INFO  ClientHandler:120 - Request to disconnect
+2019-07-29 13:03:54 INFO  root:109 - nick1 UnSubscribed for broadcast
+2019-07-29 13:03:56 INFO  ClientHandler:120 - Request to disconnect
+2019-07-29 13:03:56 INFO  ClientHandler:120 - Request to disconnect
+2019-07-29 13:03:56 INFO  root:109 - nick2 UnSubscribed for broadcast
