@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="client.RegisterWindow"
+      prefHeight="260.0" prefWidth="250.0">
+        <Label fx:id="reason" text=""></Label>
+    <HBox>
+        <TextField fx:id="login" HBox.hgrow="ALWAYS" text="Login"></TextField>
+        <Button fx:id="loginCheck" onAction="#checkLogin" HBox.hgrow="ALWAYS" minWidth="80.0" text="Check"></Button>
+    </HBox>
+    <HBox>
+        <TextField fx:id="nick" HBox.hgrow="ALWAYS" text="Nickname"></TextField>
+        <Button fx:id="nickCheck" onAction="#checkNick" HBox.hgrow="ALWAYS" minWidth="80.0" text="Check"></Button>
+    </HBox>
+    <HBox>
+        <TextField fx:id="password" HBox.hgrow="ALWAYS" text="Password"></TextField>
+        <Button fx:id="register" onAction="#register" text="Register" minWidth="80.0"></Button>
+    </HBox>
+    <VBox>
+
+        <Label fx:id="rule1" text="Password is valid" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule2" text="Password length is less than 8" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule3" text="Number character absent" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule4" text="Lower case characters absent" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule5" text="Capital case characters absent" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule6" text="Special character absent" textFill="red" alignment="CENTER"></Label>
+        <Label fx:id="rule7" text="Correct characters used" textFill="red" alignment="CENTER"></Label>
+    </VBox>
+    <HBox>
+        <Button fx:id="connect" text="Connect" onAction="#connect" visible="true" HBox.hgrow="ALWAYS" prefWidth="250.0"></Button>
+    </HBox>
+
+</VBox>
