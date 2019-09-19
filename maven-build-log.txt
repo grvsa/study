@@ -1,0 +1,82 @@
+/usr/lib/jvm/jdk1.8.0_221/bin/java -Dmaven.multiModuleProjectDirectory=/home/grvsa/IdeaProjects/javaeelessons/webapp -Dmaven.home=/opt/idea/plugins/maven/lib/maven3 -Dclassworlds.conf=/opt/idea/plugins/maven/lib/maven3/bin/m2.conf -javaagent:/opt/idea/lib/idea_rt.jar=44483:/opt/idea/bin -Dfile.encoding=UTF-8 -classpath /opt/idea/plugins/maven/lib/maven3/boot/plexus-classworlds-2.5.2.jar org.codehaus.classworlds.Launcher -Didea.version2019.1.3 clean install wildfly:deploy
+[INFO] Scanning for projects...
+[INFO]                                                                         
+[INFO] ------------------------------------------------------------------------
+[INFO] Building webapp Maven Webapp 1.0-SNAPSHOT
+[INFO] ------------------------------------------------------------------------
+[INFO] 
+[INFO] --- maven-clean-plugin:3.1.0:clean (default-clean) @ webapp ---
+[INFO] Deleting /home/grvsa/IdeaProjects/javaeelessons/webapp/target
+[INFO] 
+[INFO] --- maven-resources-plugin:3.0.2:resources (default-resources) @ webapp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /home/grvsa/IdeaProjects/javaeelessons/webapp/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.0:compile (default-compile) @ webapp ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-resources-plugin:3.0.2:testResources (default-testResources) @ webapp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /home/grvsa/IdeaProjects/javaeelessons/webapp/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.0:testCompile (default-testCompile) @ webapp ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.22.1:test (default-test) @ webapp ---
+[INFO] No tests to run.
+[INFO] 
+[INFO] --- maven-war-plugin:3.2.2:war (default-war) @ webapp ---
+[INFO] Packaging webapp
+[INFO] Assembling webapp [webapp] in [/home/grvsa/IdeaProjects/javaeelessons/webapp/target/webapp]
+[INFO] Processing war project
+[INFO] Copying webapp resources [/home/grvsa/IdeaProjects/javaeelessons/webapp/src/main/webapp]
+[INFO] Webapp assembled in [37 msecs]
+[INFO] Building war: /home/grvsa/IdeaProjects/javaeelessons/webapp/target/webapp.war
+[INFO] 
+[INFO] --- maven-install-plugin:2.5.2:install (default-install) @ webapp ---
+[INFO] Installing /home/grvsa/IdeaProjects/javaeelessons/webapp/target/webapp.war to /home/grvsa/.m2/repository/ru/geekbrains/webapp/1.0-SNAPSHOT/webapp-1.0-SNAPSHOT.war
+[INFO] Installing /home/grvsa/IdeaProjects/javaeelessons/webapp/pom.xml to /home/grvsa/.m2/repository/ru/geekbrains/webapp/1.0-SNAPSHOT/webapp-1.0-SNAPSHOT.pom
+[INFO] 
+[INFO] >>> wildfly-maven-plugin:2.0.1.Final:deploy (default-cli) > package @ webapp >>>
+[INFO] 
+[INFO] --- maven-resources-plugin:3.0.2:resources (default-resources) @ webapp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /home/grvsa/IdeaProjects/javaeelessons/webapp/src/main/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.0:compile (default-compile) @ webapp ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-resources-plugin:3.0.2:testResources (default-testResources) @ webapp ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] skip non existing resourceDirectory /home/grvsa/IdeaProjects/javaeelessons/webapp/src/test/resources
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.8.0:testCompile (default-testCompile) @ webapp ---
+[INFO] No sources to compile
+[INFO] 
+[INFO] --- maven-surefire-plugin:2.22.1:test (default-test) @ webapp ---
+[INFO] No tests to run.
+[INFO] Skipping execution of surefire because it has already been run for this configuration
+[INFO] 
+[INFO] --- maven-war-plugin:3.2.2:war (default-war) @ webapp ---
+[INFO] Packaging webapp
+[INFO] Assembling webapp [webapp] in [/home/grvsa/IdeaProjects/javaeelessons/webapp/target/webapp]
+[INFO] Processing war project
+[INFO] Copying webapp resources [/home/grvsa/IdeaProjects/javaeelessons/webapp/src/main/webapp]
+[INFO] Webapp assembled in [2 msecs]
+[INFO] Building war: /home/grvsa/IdeaProjects/javaeelessons/webapp/target/webapp.war
+[INFO] 
+[INFO] <<< wildfly-maven-plugin:2.0.1.Final:deploy (default-cli) < package @ webapp <<<
+[INFO] 
+[INFO] --- wildfly-maven-plugin:2.0.1.Final:deploy (default-cli) @ webapp ---
+[INFO] JBoss Threads version 2.3.2.Final
+[INFO] JBoss Remoting version 5.0.8.Final
+[INFO] XNIO version 3.6.5.Final
+[INFO] XNIO NIO Implementation Version 3.6.5.Final
+[INFO] ELY00001: WildFly Elytron version 1.6.0.Final
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 6.444 s
+[INFO] Finished at: 2019-09-19T14:49:05+03:00
+[INFO] Final Memory: 23M/253M
+[INFO] ------------------------------------------------------------------------
