@@ -1,0 +1,199 @@
+public interface IRender {
+    void render(SpriteBatch batch);
+}
+
+
+public interface IUpdate {
+    void update(float dt);
+}
+
+public abstract class Person implements IUpdate,IRender{
+    Texture texture;
+    Vector2 position;
+    Vector2 tmp;
+    float speed;
+    ArpgGame game;
+
+    public Person(float speed, ArpgGame game) {
+        this.speed = speed;
+        position = new Vector2(0,0);
+        tmp = new Vector2(0,0);
+        this.game = game;
+        do{
+            position.set(MathUtils.random(ArpgGame.WIDTH), MathUtils.random(ArpgGame.HEIGTH));
+        }while (game.getMap().isPassable(position) == 0);
+    }
+
+    public Person(float speed, int x, int y, ArpgGame game) {
+        this.speed = speed;
+        this.game = game;
+        position = new Vector2(x, y);
+        tmp = new Vector2(0,0);
+    }
+
+    public void render(SpriteBatch batch) {
+        batch.draw(texture,position.x - 40, position.y - 40);
+    };
+}
+
+public class Player extends Person {
+
+    public Player(float speed, ArpgGame game) {
+        super(speed, game);
+        texture = new Texture("Knight.png");
+    }
+
+    public Player(float speed, int x, int y, ArpgGame game) {
+        super(speed, x, y, game);
+        texture = new Texture("Knight.png");
+    }
+
+    @Override
+    public void update(float dt) {
+        float speedMod = 1.0f;
+        if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
+            speedMod = 2.2f;
+        }
+        tmp.set(position);
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            tmp.x -= speed * dt * speedMod;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+            tmp.x += speed * dt * speedMod;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            tmp.y -= speed * dt * speedMod;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            tmp.y += speed * dt * speedMod;
+        }
+        if (game.getMap().isPassable(tmp) != 0) {
+            position.set(tmp);
+        }
+    }
+}
+
+public class Skeleton extends Person {
+    float triggerAI;
+    float triggerDtAI;
+    Vector2 direction;
+
+    public Skeleton(float speed, ArpgGame game) {
+        super(speed, game);
+        texture = new Texture("Skeleton.png");
+        direction = new Vector2(0,0);
+        triggerAI = 0;
+        triggerDtAI = MathUtils.random(2.0f, 4.0f);
+    }
+
+    public Skeleton(float speed, int x, int y, ArpgGame game) {
+        super(speed, x, y, game);
+        texture = new Texture("Skeleton.png");
+        direction = new Vector2(0,0);
+        triggerAI = 0;
+        triggerDtAI = MathUtils.random(2.0f, 4.0f);
+    }
+
+    @Override
+    public void update(float dt) {
+        triggerAI += dt;
+        if (triggerAI > triggerDtAI){
+            triggerAI = 0;
+            triggerDtAI = MathUtils.random(2.0f, 4.0f);
+            direction.set(MathUtils.random(-1.0f,1.0f), MathUtils.random(-1.0f,1.0f)).nor();
+        }
+
+        tmp.set(position);
+        tmp.add(direction.x * dt * speed, direction.y * dt * speed);
+        if (game.getMap().isPassable(tmp) != 0){
+            position.set(tmp);
+        }
+    }
+}
+
+public class Map implements IRender{
+    private Landscape[][] map;
+    private int maxX;
+    private int maxY;
+
+    public Map(int maxX, int maxY) {
+        this.maxX = maxX;
+        this.maxY = maxY;
+        map = new Landscape[maxX][maxY];
+
+        for (int i = 0; i < maxX; i++) {
+            for (int j = 0; j < maxY; j++) {
+                if (MathUtils.random(1.0f) < 0.9f){
+                    map[i][j] = Landscape.GRASS;
+                }else{
+                    map[i][j] = Landscape.WALL;
+                }
+            }
+        }
+    }
+
+    public void render(SpriteBatch batch){
+        int stepX = ArpgGame.WIDTH / maxX;
+        int stepY = ArpgGame.HEIGTH / maxY;
+        for (int i = 0; i < maxX; i++) {
+            for (int j = 0; j < maxY; j++) {
+                batch.draw(map[i][j].getTexture(),stepX * i,stepY * j);
+            }
+        }
+    }
+
+    public int isPassable(Vector2 point){
+        if (point.x < 0 || point.y < 0 || point.x > ArpgGame.WIDTH || point.y > ArpgGame.HEIGTH){
+            return 0;
+        }else {
+            return map[(int) (point.x / (ArpgGame.WIDTH / maxX))][(int) (point.y / (ArpgGame.HEIGTH / maxY))].getPassable();
+        }
+    }
+}
+
+public enum Landscape {
+    GRASS(new Texture("Grass.png"), 1),
+    WALL(new Texture("Wall.png"),0);
+    private Texture texture;
+    int passable;
+
+    Landscape(Texture texture, int passable) {
+        this.texture = texture;
+        this.passable = passable;
+    }
+
+    public Texture getTexture() {
+        return texture;
+    }
+
+    public int getPassable() {
+        return passable;
+    }
+}
+
+public class DesktopLauncher {
+	public static final int WIDTH = 1280;
+	public static final int HEIGTH = 720;
+
+	public static void main (String[] arg) {
+		LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
+		config.width = WIDTH;
+		config.height = HEIGTH;
+		new LwjglApplication(new ArpgGame(WIDTH, HEIGTH), config);
+	}
+}
+
+public class ArpgGame extends ApplicationAdapter {
+	public static int WIDTH;
+	public static int HEIGTH;
+	SpriteBatch batch;
+	Map map;
+	Player hero;
+	Skeleton skeleton;
+
+	public ArpgGame(int width,int height) {
+		super();
+		WIDTH = width;
+		HEIGTH = height;
+
+	}
