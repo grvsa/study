@@ -1,0 +1,463 @@
+// Изменил для работы со SkeletonController
+
+public class Player extends Person {
+
+    public Player(float speed, GameScreen game) {
+         super(speed, game);
+        texture = Assets.getInstance().getTextureAtlas().findRegion("Knight");
+        hpMax = 40;
+        hp = 40;
+        personColor = new Color(Color.GOLD);
+        atackTimerMax = 1;
+    }
+
+    public Player(float speed, int x, int y, GameScreen game) {
+        super(speed, x, y, game);
+        texture = Assets.getInstance().getTextureAtlas().findRegion("Knight");
+        hpMax = 40;
+        hp = 40;
+        personColor = new Color(Color.GOLD);
+        atackTimerMax = 1;
+    }
+
+
+    @Override
+    public void update(float dt) {
+        float speedMod = 1.0f;
+        damageTimer -= dt;
+        atackTimer += dt;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
+            speedMod = 2.2f;
+        }
+        tmp.set(position);
+        if (Gdx.input.isKeyPressed(Input.Keys.SPACE)){
+            tmp.add(direction.x * 40, direction.y * 40);
+            for (int i = 0; i < game.getSkeletonController().getActiveList().size(); i++) {
+                Skeleton skeleton = game.getSkeletonController().getActiveList().get(i);
+                if (skeleton.getArea().contains(tmp) && atackTimer > atackTimerMax){
+                    skeleton.takeDamage(1);
+                    atackTimer = 0;
+                }
+            }
+        }
+
+        tmp.set(position);
+        boolean isKeyPressed = false;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            direction = Direction.LEFT;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+            direction = Direction.RIGHT;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            direction = Direction.DOWN;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            direction = Direction.UP;
+            isKeyPressed = true;
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.G)) {
+            int size = game.getInfoController().getActiveList().size() + game.getInfoController().getFreeList().size();
+            game.getInfoController().getActiveElement().setup(position,"Hellow !!" + size, Color.GOLD);
+        }
+
+        tmp.x += direction.getX() * speed * dt * speedMod;
+        tmp.y += direction.getY() * speed * dt * speedMod;
+        if (isKeyPressed && game.getMap().isPassable(tmp) != -1) {
+            position.set(tmp);
+            area.setPosition(position);
+        }
+    }
+}
+
+// Изменил для работы PathFinder
+
+public class Skeleton extends Person implements Pollable {
+    float triggerAI;
+    float triggerDtAI;
+    boolean trackingMode;
+    float routeTrigger;
+    float yTrigger;
+    LinkedList<Direction> route;
+    boolean alive;
+    Color routeColor;
+
+    public Skeleton(float speed, GameScreen game) {
+        super(speed, game);
+        texture = Assets.getInstance().getTextureAtlas().findRegion("Skeleton");
+        direction = Direction.NONE;
+        triggerAI = 0;
+        triggerDtAI = MathUtils.random(2.0f, 4.0f);
+        trackingMode = false;
+        routeTrigger = 0;
+        yTrigger = 0;
+        route = new LinkedList<>();
+        alive = false;
+        personColor = new Color(Color.PURPLE);
+        routeColor = new Color(1,1,1,1);
+        hp = 20;
+        hpMax = 20;
+        atackTimerMax = 4;
+    }
+
+    public Skeleton(float speed, int x, int y, GameScreen game) {
+        super(speed, x, y, game);
+        texture = Assets.getInstance().getTextureAtlas().findRegion("Skeleton");
+        direction = Direction.NONE;
+        triggerAI = 0;
+        triggerDtAI = MathUtils.random(2.0f, 4.0f);
+        trackingMode = false;
+        routeTrigger = 0;
+        yTrigger = 0;
+        route = new LinkedList<>();
+        alive = false;
+        hp = 20;
+        hpMax = 20;
+        routeColor = new Color(1,1,1,1);
+        personColor = new Color(Color.PURPLE);
+        atackTimerMax = 4;
+    }
+
+    @Override
+    public void render(SpriteBatch batch) {
+        batch.setColor(routeColor);
+        super.render(batch);
+    }
+
+    public void setAlive(boolean alive) {
+        this.alive = alive;
+    }
+
+    @Override
+    public void update(float dt) {
+        if (hp < 0 ){
+            alive = false;
+            hp = hpMax;
+        }
+        atackTimer += dt;
+        tmp.set(position);
+        tmp.add(direction.x * 40, direction.y * 40);
+        if (game.getHero().getArea().contains(tmp) && atackTimer > atackTimerMax){
+            game.getHero().takeDamage(1);
+            atackTimer = 0;
+        }
+
+        if (!trackingMode) {
+            triggerAI += dt;
+            damageTimer -= dt;
+
+            if (triggerAI > triggerDtAI) {
+                triggerAI = 0;
+                triggerDtAI = MathUtils.random(2.0f, 4.0f);
+                direction = Direction.values()[MathUtils.random(0, 3)];
+            }
+
+            tmp.set(position);
+            tmp.add(direction.x * dt * speed, direction.y * dt * speed);
+            if (game.getMap().isPassable(tmp) != -1) {
+                position.set(tmp);
+                area.setPosition(position);
+            }
+        } else {
+            if (route.size() > 0) {
+                if (direction == Direction.NONE){
+                    direction = route.removeFirst();
+                }
+                position.x += direction.x * dt * speed;
+                position.y += direction.y * dt * speed;
+                area.setPosition(position);
+                routeTrigger += dt * speed;
+                if (routeTrigger >= Map.CELL_SIZE) {
+                    routeTrigger = 0;
+                    direction = route.removeFirst();
+                    game.getInfoController().getActiveElement().setup(position,direction.toString(), Color.RED);
+                }
+
+            } else {
+                int x = (int) position.x / Map.CELL_SIZE;
+                int y = (int) (720 - position.y) / Map.CELL_SIZE;
+                int hx = (int) game.getHero().position.x / Map.CELL_SIZE;
+                int hy = (int) (720 - game.getHero().position.y) / Map.CELL_SIZE;
+
+                route.addAll(PathFinder.getInstance().calculateRoute(x,y,hx,hy));
+                PathFinder.getInstance().clear();
+                routeTrigger = 0;
+                direction = Direction.NONE;
+            }
+        }
+    }
+
+    public boolean isTrackingMode() {
+        return trackingMode;
+    }
+
+    public Color getRouteColor() {
+        return routeColor;
+    }
+
+    public void setTrackingMode(boolean trackingMode) {
+        this.trackingMode = trackingMode;
+    }
+
+    @Override
+    public boolean isAlive() {
+        return alive;
+    }
+}
+
+// класс SkeletonController
+
+public class SkeletonController extends ObjectPool<Skeleton> {
+    private static GameScreen game;
+
+    public SkeletonController(GameScreen game) {
+        this.game = game;
+    }
+
+    public SkeletonController(int size, GameScreen game) {
+        super();
+        this.game = game;
+        for (int i = 0; i < size; i++) {
+            freeList.add(newObject());
+            getActiveElement().setAlive(true);
+        }
+    }
+
+    public void render(SpriteBatch batch){
+        for (int i = 0; i < activeList.size(); i++) {
+            activeList.get(i).render(batch);
+        }
+    }
+
+    public void update(float dt){
+        for (int i = 0; i < activeList.size(); i++) {
+            activeList.get(i).update(dt);
+        }
+        chechPool();
+    }
+
+    @Override
+    public Skeleton newObject() {
+        return new Skeleton(120,game);
+    }
+}
+
+// Изменил update в GameScreen для работы PathFinder
+
+public class GameScreen extends AbstractScreen {
+    private Map map;
+    private Player hero;
+    private SkeletonController skeletonController;
+    private GameScreen screen;
+    private InfoController infoController;
+    Vector2 mouse;
+
+    public Map getMap() {
+        return map;
+    }
+
+    public Player getHero() {
+        return hero;
+    }
+
+    public SkeletonController getSkeletonController() {
+        return skeletonController;
+    }
+
+    public GameScreen(SpriteBatch batch) {
+        super(batch);
+        this.screen = this;
+    }
+
+    @Override
+    public void show() {
+        this.map = new Map(16,9);
+        this.hero = new Player(240.0f,screen);
+        this.skeletonController = new SkeletonController(5,screen);
+        this.infoController = new InfoController();
+        PathFinder.getInstance().init(map);
+        mouse = new Vector2(0,0);
+    }
+
+    @Override
+    public void render(float delta) {
+        update(delta);
+        Gdx.gl.glClearColor(0,0,0,1);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        batch.begin();
+        map.render(batch);
+        hero.render(batch);
+        skeletonController.render(batch);
+        infoController.render(batch, (BitmapFont) Assets.getInstance().getAssetManager().get("fonts/font24.ttf"));
+        batch.end();
+    }
+
+// Мышь выбирает монстра и меняет тип движения
+
+    public void update(float dt){
+        mouse.set(Gdx.input.getX(),Gdx.input.getY());
+        ScreenManager.getInstance().getViewPort().unproject(mouse);
+        hero.update(dt);
+        skeletonController.update(dt);
+        infoController.update(dt);
+        if (Gdx.input.justTouched()){
+            for (int i = 0; i < skeletonController.getActiveList().size(); i++) {
+                Skeleton skeleton = skeletonController.getActiveList().get(i);
+                if (skeleton.getArea().contains(mouse)){
+                    if (skeleton.isTrackingMode()){
+                        skeleton.getRouteColor().set(1,1,1,1);
+                        skeleton.setTrackingMode(false);
+                    }else{
+                        skeleton.getRouteColor().set(0,1,0,1);
+                        skeleton.setTrackingMode(true);
+                    }
+                }
+
+            }
+        }
+    }
+
+    public InfoController getInfoController() {
+        return infoController;
+    }
+}
+
+// PathFinder построение кратчайшего маршрута
+
+public class PathFinder {
+    private static final PathFinder instance = new PathFinder();
+
+    Landscape[][] landscapeMap;
+    Vertex[][] routeMap;
+    List<Vertex> vertexList;
+    LinkedList<Direction> route;
+
+    private PathFinder() {
+        landscapeMap = null;
+        routeMap = null;
+        vertexList = new ArrayList<>(100);
+        route = new LinkedList<>();
+    }
+
+    public static PathFinder getInstance() {
+        return instance;
+    }
+
+    public void init(Map map) {
+        landscapeMap = map.getMap();
+        routeMap = new Vertex[landscapeMap.length][landscapeMap[0].length];
+        for (int i = 0; i < landscapeMap.length; i++) {
+            for (int j = 0; j < landscapeMap[0].length; j++) {
+                routeMap[i][j] = new Vertex(j, i, landscapeMap[i][j]);
+            }
+        }
+        vertexList.clear();
+        route.clear();
+//        printMap();
+//        System.out.println("-------------------------------------------------------------------");
+    }
+
+    public void printMap() {
+        for (int i = 0; i < routeMap.length; i++) {
+            for (int j = 0; j < routeMap[0].length; j++) {
+                System.out.print(routeMap[i][j] + "\t");
+            }
+            System.out.println();
+        }
+    }
+
+    public List<Direction> calculateRoute(int startX, int startY, int endX, int endY) {
+        Vertex current = routeMap[startY][startX];
+        current.distance = 0;
+        vertexList.add(current);
+        while (vertexList.size() > 0) {
+            Collections.sort(vertexList);
+            current = vertexList.remove(vertexList.size() - 1);
+//          LEFT
+            if (current.x > 0 && landscapeMap[current.y][current.x - 1].getPassable() > 0
+                    && routeMap[current.y][current.x - 1].distance > current.distance + current.weight.getPassable()) {
+                routeMap[current.y][current.x - 1].distance = current.distance + current.weight.getPassable();
+                routeMap[current.y][current.x - 1].from = Direction.LEFT;
+                vertexList.add(routeMap[current.y][current.x - 1]);
+            }
+//          RIGHT
+            if (current.x < routeMap[0].length - 1 && landscapeMap[current.y][current.x + 1].getPassable() > 0
+                    && routeMap[current.y][current.x + 1].distance > current.distance + current.weight.getPassable()) {
+                routeMap[current.y][current.x + 1].distance = current.distance + current.weight.getPassable();
+                routeMap[current.y][current.x + 1].from = Direction.RIGHT;
+                vertexList.add(routeMap[current.y][current.x + 1]);
+            }
+//            DOWN
+            if (current.y < routeMap.length - 1 && landscapeMap[current.y + 1][current.x].getPassable() > 0
+                    && routeMap[current.y + 1][current.x].distance > current.distance + current.weight.getPassable()) {
+                routeMap[current.y + 1][current.x].distance = current.distance + current.weight.getPassable();
+                routeMap[current.y + 1][current.x].from = Direction.DOWN;
+                vertexList.add(routeMap[current.y + 1][current.x]);
+            }
+
+//            UP
+            if (current.y > 0 && landscapeMap[current.y - 1][current.x].getPassable() > 0
+                    && routeMap[current.y - 1][current.x].distance > current.distance + current.weight.getPassable()) {
+                routeMap[current.y - 1][current.x].distance = current.distance + current.weight.getPassable();
+                routeMap[current.y - 1][current.x].from = Direction.UP;
+                vertexList.add(routeMap[current.y - 1][current.x]);
+            }
+
+        }
+
+        current = routeMap[endY][endX];
+        while (current.from != Direction.NONE) {
+            route.addFirst(current.from);
+            current = routeMap[current.y + current.from.getY()][current.x - current.from.getX()];
+        }
+
+//        printMap();
+//        System.out.println("-------------------------------------------------------------------");
+        return route;
+    }
+
+    public void clear() {
+        for (int i = 0; i < routeMap.length; i++) {
+            for (int j = 0; j < routeMap[0].length; j++) {
+                routeMap[i][j].from = Direction.NONE;
+                routeMap[i][j].distance = Float.MAX_VALUE;
+            }
+        }
+        vertexList.clear();
+        route.clear();
+    }
+
+
+    class Vertex implements Comparable<Vertex> {
+        Direction from;
+        int x;
+        int y;
+        Landscape weight;
+        float distance;
+
+        public Vertex(int x, int y, Landscape weight) {
+            this.x = x;
+            this.y = y;
+            distance = Float.MAX_VALUE;
+            from = Direction.NONE;
+            this.weight = weight;
+        }
+
+        @Override
+        public int compareTo(Vertex o) {
+            return Float.compare(o.distance, distance);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("X%d:Y%d=%4.2f", x, y, distance == Float.MAX_VALUE ? 99 : distance);
+        }
+    }
+}
