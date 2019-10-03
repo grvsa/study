@@ -1,0 +1,112 @@
+
+// класс Unit метод takeDamage возвращает полученый опыт(за удар частично, за убийство полный)
+
+    public int takeDamage(int damage, Stats attackStats){
+        int currentExp = 500;
+        float rate = attackStats.getAtt() / 1.0f / stats.getDef();
+        float realDamag = damage * rate;
+        if(!stats.decreaseHp(damage)){
+            currentExp = (int) (currentExp / 10 * rate) ;
+        }
+        damageTimer = 1.0f;
+        game.getInfoController().getActiveElement().setup(position,"" + realDamag,personColor);
+        return currentExp;
+    }
+
+    public Stats getStats() {
+        return stats;
+    }
+
+// класс Stats метод decreaseHP возвращает - убит или нет
+
+    public boolean decreaseHp(int damage) {
+        return (hp -= damage) < 0;
+    }
+
+// классы Monster и Player изменяем логику атаки - результат takeDamage опонента прибавляем к exp
+// атакующего
+
+        if (Gdx.input.isKeyPressed(Input.Keys.SPACE)){
+            tmp.add(direction.x * 60, direction.y * 60);
+
+            if (atackTimer > weapon.getAtackPeriod())
+            {
+                int dam = weapon.getDamage();
+                for (int i = 0; i < game.getMonsterController().getActiveList().size(); i++) {
+                    Monster monster = game.getMonsterController().getActiveList().get(i);
+                    if (monster.getArea().contains(tmp)){
+                        stats.addExp(monster.takeDamage(dam, stats));
+                        break;
+                    }
+                }
+                game.getEffectController().getActiveElement().setup(tmp.x, tmp.y, 0);
+                atackTimer = 0;
+            }
+        }
+
+
+// класс GameScreen закидываем в monsterController setup уровень героя.
+
+    public void update(float dt){
+        spawnTimer += dt;
+        if (spawnTimer > 5.0f){
+            spawnTimer = 0;
+            monsterController.setup(hero.getStats().getLevel());
+        }
+        mouse.set(Gdx.input.getX(),Gdx.input.getY());
+        ScreenManager.getInstance().getViewPort().unproject(mouse);
+        hero.update(dt);
+        monsterController.update(dt);
+        infoController.update(dt);
+        effectController.update(dt);
+        if (Gdx.input.justTouched()){
+            for (int i = 0; i < monsterController.getActiveList().size(); i++) {
+                Monster monster = monsterController.getActiveList().get(i);
+                if (monster.getArea().contains(mouse)){
+                    if (monster.isTrackingMode()){
+                        monster.getRouteColor().set(1,1,1,1);
+                        monster.setTrackingMode(false);
+                    }else{
+                        monster.getRouteColor().set(0,1,0,1);
+                        monster.setTrackingMode(true);
+                    }
+                }
+
+            }
+        }
+    }
+
+// класс MonsterController генерируем вероятность появляения Skeleton и Reaper
+
+    public void setup(int level){
+        int unit = MathUtils.random(0.0f, 1.0f) < 0.9f ? 0 : 1;
+        String[] patterns = {"Skeleton", "Reaper"};
+        getActiveElement().setup(MathUtils.random(level, level + 2), -1, -1,	game.getBestiary().getPatternFromTitle(patterns[unit]));
+    }
+
+// объект для хранения TextureRegion
+
+public class TexturePool {
+    private static final TexturePool instance = new TexturePool();
+    private HashMap<String, TextureRegion> textureMap;
+
+    private TexturePool() {
+        textureMap = new HashMap<>();
+    }
+
+    public static TexturePool getInstance() {
+        return instance;
+    }
+
+    public void clear(){
+        textureMap.clear();
+    }
+    
+    public TextureRegion getTexture(String name){
+        if (!textureMap.containsKey(name)){
+            textureMap.put(name, Assets.getInstance().getTextureAtlas().findRegion(name));
+        }
+        return textureMap.get(name);
+    }
+}
+
