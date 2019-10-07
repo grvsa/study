@@ -1,0 +1,129 @@
+
+// класс Map проверка наложения на деревьев
+public class Map {
+    private Vector2 tmp;
+
+    public float isPassable(Vector2 position){
+        if (position.x < 20.0f || position.y < 20.0f || position.x > MAP_SIZE_X_PX - 20.0f || position.y > MAP_SIZE_Y_PX - 20.0f){
+            return -1;
+        }
+
+        boolean checkOverlap = false;
+
+        tmp.set(position.x - 10, position.y);
+        int cellX = (int) (tmp.x / 80);
+        int cellY = (int) (tmp.y / 80);
+        if (map[cellY][cellX].getPassable() == -1){
+            checkOverlap = true;
+        }
+        tmp.set(position.x + 10, position.y);
+        cellX = (int) (tmp.x / 80);
+        cellY = (int) (tmp.y / 80);
+        if (map[cellY][cellX].getPassable() == -1){
+            checkOverlap = true;
+        }
+        if (checkOverlap){
+            return -1;
+        }else {
+            cellX = (int) (position.x / 80);
+            cellY = (int) (position.y / 80);
+            return checkOverlap ? -1 : map[cellY][cellX].getPassable();
+        }
+    }
+}
+
+// класс Monster - агрессия к персонажу и преследование.
+
+public class Monster extends Person implements Pollable {
+    float triggerAI;
+    float triggerDtAI;
+    boolean trackingMode;
+    float routeTrigger;
+    float yTrigger;
+    LinkedList<Direction> route;
+    private String title;
+    private Person target;
+    private float trackingTimer;
+
+
+    @Override
+    public void update(float dt) {
+        atackTimer += dt;
+        if (trackingMode){
+            trackingTimer += dt;
+        }
+
+        if (trackingTimer > 20.0f){
+            trackingMode = false;
+            trackingTimer = 0.0f;
+        }
+
+        tmp.set(position);
+        tmp.add(direction.x * 60, direction.y * 60);
+        if (game.getHero().getArea().contains(tmp) && atackTimer > weapon.getAtackPeriod()){
+            stats.addExp(game.getHero().takeDamage(weapon.getDamage(), this));
+            game.getEffectController().getActiveElement().setup(tmp.x, tmp.y, 1);
+            atackTimer = 0;
+        }
+
+        if (!trackingMode) {
+            triggerAI += dt;
+            damageTimer -= dt;
+
+            if (triggerAI > triggerDtAI) {
+                triggerAI = 0;
+                triggerDtAI = MathUtils.random(2.0f, 4.0f);
+                direction = Direction.values()[MathUtils.random(0, 3)];
+            }
+
+            tmp.set(position);
+            tmp.add(direction.x * dt * stats.getSpeed(), direction.y * dt * stats.getSpeed());
+            if (game.getMap().isPassable(tmp) != -1) {
+                position.set(tmp);
+                area.setPosition(position);
+                walkTimer += dt;
+            }
+        } else {
+            if (target.getPosition().dst(position) > Map.CELL_SIZE) {
+                if (routeTrigger < Map.CELL_SIZE && route.size() > 0) {
+                    if (direction == Direction.NONE) {
+                        direction = route.removeFirst();
+                        game.getInfoController().getActiveElement().setup(position, direction.toString(), Color.RED);
+                    }
+                    tmp.set(position);
+                    tmp.add(direction.x * dt * stats.getSpeed(), direction.y * dt * stats.getSpeed());
+
+                    if (game.getMap().isPassable(tmp) != -1) {
+                        position.set(tmp);
+                        area.setPosition(position);
+                        walkTimer += dt;
+                        routeTrigger += dt * stats.getSpeed();
+                    } else {
+                        routeTrigger = Map.CELL_SIZE;
+                    }
+                } else {
+                    int hx = (int) target.getPosition().x / Map.CELL_SIZE;
+                    int hy = (int) target.getPosition().y / Map.CELL_SIZE;
+                    int x = (int) position.x / Map.CELL_SIZE;
+                    int y = (int) position.y / Map.CELL_SIZE;
+
+                    route.clear();
+                    route.addAll(PathFinder.getInstance().calculateRoute(x, y, hx, hy));
+                    PathFinder.getInstance().clear();
+                    routeTrigger = 0;
+                    direction = Direction.NONE;
+                }
+            }
+        }
+    }
+
+    @Override
+    public int takeDamage(int damage, Person attaker) {
+        if (MathUtils.random(1.0f) < 0.2f){
+            trackingMode = true;
+            target = attaker;
+            direction = Direction.NONE;
+        }
+        return super.takeDamage(damage, attaker);
+    }
+}
