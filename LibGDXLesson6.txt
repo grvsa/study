@@ -1,0 +1,263 @@
+___title________,__base_att__,__base_def__,__base_hp__,__att_pl__,__def_pl__,__hp_pl__,__speed__,__base_dex__,__dex_pl__,__dex_Act__
+Tiger           ,1           ,1           ,10         ,1         ,1         ,5        ,80.0     ,100.0f      ,30.0f     ,5.0f
+
+// класс Stats
+public class Stats {
+    private float dex;
+    private float dexBase;
+    private float dexPL;
+    private float dexMax;
+    private float dexAct;
+
+      public Stats(int level, int attPL, int defPL, int hpMaxPL,
+                 int attBase, int defBase, int hpMaxBase, float speed,
+                 float dexBase, float dexPL, float dexAct) {
+        this.dexAct = dexAct;
+        this.dexBase = dexBase;
+        this.dexPL = dexPL;
+        this.level = level;
+        this.attPL = attPL;
+        this.defPL = defPL;
+        this.hpMaxPL = hpMaxPL;
+        this.attBase = attBase;
+        this.defBase = defBase;
+        this.hpMaxBase = hpMaxBase;
+        this.speed = speed;
+        this.calculate();
+        fillHp();
+        fillDex();
+    }
+
+    public void set(int level, Stats stats){
+        this.level = level;
+        this.dexBase = stats.dexBase;
+        this.dexPL = stats.dexPL;
+        this.dexAct = stats.dexAct;
+        this.attPL = stats.attPL;
+        this.defPL = stats.defPL;
+        this.hpMaxPL = stats.hpMaxPL;
+        this.attBase = stats.attBase;
+        this.defBase = stats.defBase;
+        this.hpMaxBase = stats.hpMaxBase;
+        this.speed = stats.speed;
+        this.calculate();
+        fillHp();
+        fillDex();
+    }
+
+    public void calculate(){
+        att = attBase + level * attPL;
+        def = defBase + level * defPL;
+        dexMax = dexBase + level * dexPL;
+        hpMax = hpMaxBase + level * hpMaxPL;
+    }  
+
+    public void addExp(int exp){
+        this.exp += exp;
+        if (this.exp > extTo[level - 1]){
+            level++;
+            calculate();
+            fillDex();
+            fillHp();
+        }
+    }
+
+    public float updateDex(float amount){
+        float tmpDex = dex;
+        dex += amount;
+        if (dex > dexMax){
+            dex = dexMax;
+        }
+        if (dex < 0){
+            dex = 0;
+        }
+        return dex - tmpDex;
+    }
+
+    public float getDex() {
+        return dex;
+    }
+
+    public float getDexMax() {
+        return dexMax;
+    }
+
+    public float getDexAct() {
+        return dexAct;
+    }
+
+    public int[] getExtTo() {
+        return extTo;
+    }
+}
+
+// класс Weapon
+public class Weapon implements Item {
+    private float dex;
+    public Weapon(String title, float atackPeriod, int minDamage, int maxDamage, float dex) {
+        this.dex = dex;
+        this.title = title;
+        this.atackPeriod = atackPeriod;
+        this.minDamage = minDamage;
+        this.maxDamage = maxDamage;
+    }
+    public float getDex() {
+        return dex;
+    }
+}
+
+// класс Monster - часть update касающаяся атаки
+public class Monster extends Person implements Pollable {
+    public void update(float dt) {
+        atackTimer += dt;
+        if (trackingMode){
+            trackingTimer += dt;
+        }
+
+        if (trackingTimer > 20.0f){
+            trackingMode = false;
+            trackingTimer = 0.0f;
+        }
+
+        stats.updateDex(stats.getDexAct() * dt);
+        
+        tmp.set(position);
+        tmp.add(direction.x * 60, direction.y * 60);
+        if (game.getHero().getArea().contains(tmp) && atackTimer > weapon.getAtackPeriod() && stats.getDex() > weapon.getDex()){
+            stats.updateDex(-weapon.getDex());
+            stats.addExp(game.getHero().takeDamage(weapon.getDamage(), this));
+            game.getEffectController().getActiveElement().setup(tmp.x, tmp.y, 1);
+            atackTimer = 0;
+        }
+        // дальше код передвижения и монстры не бегают
+    }
+}
+
+// класс Player
+public class Player extends Unit {
+    @Override
+    public void update(float dt) {
+        float speedMod = 1.0f;
+        damageTimer -= dt;
+        atackTimer += dt;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)) {
+            speedMod = 2.2f;
+        }
+        tmp.set(position);
+// восстанавливаем dex
+        stats.updateDex(stats.getDexAct() * dt);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.SPACE)){
+            tmp.add(direction.x * 60, direction.y * 60);
+
+            if (atackTimer > weapon.getAtackPeriod() && stats.getDex() > weapon.getDex())
+            {
+                int dam = weapon.getDamage();
+// при атаке уменьшаем dex 
+                stats.updateDex(-weapon.getDex());
+                for (int i = 0; i < game.getMonsterController().getActiveList().size(); i++) {
+                    Monster monster = game.getMonsterController().getActiveList().get(i);
+                    if (monster.getArea().contains(tmp)){
+                        stats.addExp(monster.takeDamage(dam, this));
+                        break;
+                    }
+                }
+                game.getEffectController().getActiveElement().setup(tmp.x, tmp.y, 0);
+//                soundSwordSwipe.play();
+                atackTimer = 0;
+            }
+        }
+
+        tmp.set(position);
+        if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+            inventory.selectPrev();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+            inventory.selectNext();
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+            Item item = inventory.getCurrentItem();
+            if (item.isUsable()) {
+                inventory.destroyCurrentItem();
+                if (item.getItemType() == Item.Type.POTION){
+                    Potion p = (Potion) item;
+                    if (p.getType() == Potion.Type.HP){
+                        int amount = stats.restoreHP(p.getPower());
+                        game.getInfoController().setup(position,"+" + amount + "hp", Color.GREEN);
+                    }
+                }
+            }else if (item.isWearable()){
+                if (item.getItemType() == Item.Type.WEAPON){
+                    inventory.takeCurrentWeapon((Weapon) item);
+                }
+            }
+
+        }
+        boolean isKeyPressed = false;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            direction = Direction.LEFT;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+            direction = Direction.RIGHT;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            direction = Direction.DOWN;
+            isKeyPressed = true;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            direction = Direction.UP;
+            isKeyPressed = true;
+        }
+
+        tmp.x += direction.getX() * stats.getSpeed() * dt * speedMod;
+        tmp.y += direction.getY() * stats.getSpeed() * dt * speedMod;
+        if (isKeyPressed) {
+            if (game.getMap().isPassable(tmp) != -1) {
+//  при беге уменьшаем dex
+                if (speedMod > 1.0f){
+                    stats.updateDex(stats.getDexAct() * speedMod * -1.0f * dt);
+                }
+                position.set(tmp);
+                walkTimer += dt * speedMod;
+                area.setPosition(position);
+            }
+        }else{
+            walkTimer = 0;
+        }
+    }
+// рендер для HUD
+    public void renderHUD(SpriteBatch batch, BitmapFont font){
+        font.draw(batch,
+                "[Level:" + stats.getLevel() +
+                        " EXP:" + stats.getExp() +
+                        "/" + stats.getExtTo()[stats.getLevel() -1] +
+                        " HP:" + stats.getHp() +
+                        "/" + stats.getHpMax() +
+                        " DEX:" + (int) stats.getDex() +
+                        "/" + (int) stats.getDexMax() +
+                        "]",20, 700);
+        inventory.render(batch,font);
+    }
+
+}
+
+// класс Inventory не создаем новый StringBuilder
+public class Inventory {
+    public void render(SpriteBatch batch, BitmapFont font){
+        sb.setLength(0);
+        sb.append("Coins: ").append(getCoins()).append(System.lineSeparator());
+        for (int i = 0; i < items.size(); i++) {
+            if (i == selected){
+                sb.append(">");
+            }else {
+                sb.append("-");
+            }
+            sb.append(items.get(i).getTitle()).append(System.lineSeparator());
+        }
+        font.draw(batch, sb.toString(),20, 600);
+    }
+    }
