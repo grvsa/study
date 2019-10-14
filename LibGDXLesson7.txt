@@ -1,0 +1,100 @@
+// класс Unit добавлено
+public abstract class Unit implements MapElement {
+    public enum Type{
+        MONSTER, HERO;
+    }
+
+    public abstract Type getUnitType();
+}
+
+// класс Hero
+public class Hero extends Unit {
+    public Type getUnitType() {
+        return Type.HERO;
+    }
+}
+
+// класс Monster
+public class Monster extends Unit implements Pollable {
+    @Override
+    public Type getUnitType() {
+        return Type.MONSTER;
+    }
+
+    public void setHuntState(Unit target){
+        this.target = target;
+        this.state = Type.HUNT;
+    }
+
+    public void setIdleState(){
+        this.target = null;
+        this.state = Type.IDLE;
+    }
+
+    @Override
+    public int takeDamage(int damage, Unit attaker) {
+        if (MathUtils.random(1.0f) != 0){
+            trackingMode = true;
+            target = attaker;
+        }
+        int received = super.takeDamage(damage, attaker);
+        if (!isAlive()){
+            attaker.setIdleState();
+        }
+        return received;
+    }
+}
+
+// класс GameController
+public class GameController {
+    public void update(float dt){
+    // ..................................................................................
+            for (int i = 0; i < projectileController.getActiveList().size(); i++) {
+                Projectile p = projectileController.getActiveList().get(i);
+                for (int i1 = 0; i1 < monsterController.getActiveList().size(); i1++) {
+                    Monster m = monsterController.getActiveList().get(i1);
+                    if (m.getArea().contains(p.getPosition()) && p.getUnit() != m){
+                        m.takeDamage(10, p.getUnit());
+                        if (p.getUnit().getUnitType() != Unit.Type.HERO){
+                            ((Monster) p.getUnit()).setHuntState(m);
+                        }
+                        p.deactivate();
+                        break;
+                    }
+                }
+                if (hero.getArea().contains(p.getPosition())){
+                    hero.takeDamage(1, p.getUnit());
+                }
+            }
+    //..........................................................................
+        public void collideUnits(Unit u1, Unit u2) {
+            if (u1.getArea().overlaps(u2.getArea())) {
+                tmp.set(u1.getArea().x, u1.getArea().y);
+                tmp.sub(u2.getArea().x, u2.getArea().y);
+                float halfInterLen = ((u1.getArea().radius + u2.getArea().radius) - tmp.len()) / 2.0f;
+                tmp.nor();
+
+                u1.getPosition().mulAdd(tmp, halfInterLen);
+                u2.getPosition().mulAdd(tmp, -halfInterLen);
+
+                if (map.isPassable(u1.getPosition()) == -1) {
+                    u1.getPosition().mulAdd(tmp, -halfInterLen);
+                }
+                if (map.isPassable(u2.getPosition()) == -1) {
+                    u2.getPosition().mulAdd(tmp, halfInterLen);
+                }
+
+                u1.getArea().setPosition(u1.getPosition());
+                u2.getArea().setPosition(u2.getPosition());
+            }
+            if (MathUtils.random() < 0.2f){
+                if (u1.getUnitType() != Unit.Type.HERO){
+                    ((Monster) u1).setHuntState(u2);
+                }
+                if (u2.getUnitType() != Unit.Type.HERO){
+                    ((Monster) u2).setHuntState(u1);
+                }
+            }
+        }
+    }
+}
