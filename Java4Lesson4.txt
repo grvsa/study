@@ -1,0 +1,1175 @@
+На данном этапе только консольная версия.
+Реализовано добавление файла на сервер и скачивание файла на клиент.
+Когда полностью реализую остальные функции буду прикручивать GUI.
+
+Из непонятных моментов пока только как прикрутить атрибуты собственника группы собственников файла,
+учитывая тот момент что к одному файлу в зависимости от ситуации могут иметь доступ клиенты с разных аккаунтов.
+
+С датой создания и модификации проблем нет.
+
+Клиент:
+-------------------------------------------------------------------------------------------------------------
+ru.geekbrains.cloudstorage.client.handlers
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.client.handlers;
+
+
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
+import ru.geekbrains.cloudstorage.client.FileClient;
+import ru.geekbrains.cloudstorage.common.message.Message;
+
+public class MessageHandlerClient extends ChannelInboundHandlerAdapter {
+    private FileClient fileClient;
+    private OperationThreadClient thread;
+
+    public MessageHandlerClient(FileClient fileClient) {
+        super();
+        this.thread = null;
+        this.fileClient = fileClient;
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        System.out.println("somethig received");
+
+        try {
+            if (msg != null) {
+                if (((Message) msg).getType() == Message.Type.LOGINPROPERTIES){
+                    thread = new OperationThreadClient(fileClient, ctx);
+                    thread.start();
+                }
+                fileClient.getMessageList().addLast((Message) msg);
+            } else {
+                return;
+            }
+        }finally {
+            ReferenceCountUtil.release(msg);
+        }
+    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        ctx.flush();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.client.handlers;
+
+import io.netty.channel.ChannelHandlerContext;
+import ru.geekbrains.cloudstorage.client.FileClient;
+import ru.geekbrains.cloudstorage.common.message.*;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
+
+public class OperationThreadClient extends Thread {
+    private FileClient fileClient;
+    private ChannelHandlerContext ctx;
+
+    public OperationThreadClient(FileClient fileClient, ChannelHandlerContext ctx) {
+        this.fileClient = fileClient;
+        this.ctx = ctx;
+    }
+
+    @Override
+    public void run() {
+        boolean stop = false;
+        while (!stop && !isInterrupted()){
+            if (!fileClient.getMessageList().isEmpty()){
+                Message m = fileClient.getMessageList().removeFirst();
+                switch (m.getType()){
+                    case LOGINPROPERTIES:
+                        System.out.println((LoginProperties) m);
+                        fileClient.setProperties((LoginProperties) m);
+                        break;
+                    case FRAME:
+                        writeFrame((FrameMessage) m);
+                        break;
+                    case FRAMEREQUEST:
+                        uploadFrame((FrameRequestMessage) m);
+                        break;
+                        default:
+                            System.out.println(m);
+                            break;
+                }
+            }
+        }
+    }
+
+    private void uploadFrame(FrameRequestMessage message){
+        FileItem item = message.getItem();
+        String path = fileClient.getProperties().getHomeDirectory() + item.getFilePath() + item.getFileName();
+        try {
+            RandomAccessFile raf = new RandomAccessFile(path, "r");
+            raf.seek(fileClient.getProperties().getFrameSize() * message.getFramenumber());
+            byte[] array = new byte[(int) fileClient.getProperties().getFrameSize()];
+            int arraySize = raf.read(array);
+            if (arraySize < fileClient.getProperties().getFrameSize()){
+                array = Arrays.copyOf(array, arraySize);
+            }
+            ctx.writeAndFlush(new FrameMessage(message.getTasklistid(),
+                    item,
+                    message.getFramenumber(),
+                    array));
+        }catch (IOException e){
+            e.printStackTrace();
+        }
+    }
+
+    private void writeFrame(FrameMessage frame){
+        String path = fileClient.getProperties().getHomeDirectory() + frame.getItem().getFilePath();
+        try {
+            if (!Files.exists(Paths.get(path))) {
+                Files.createDirectories(Paths.get(path));
+            }
+            path += frame.getItem().getFileName();
+            RandomAccessFile raf = new RandomAccessFile(path,"rw");
+            raf.seek(frame.getFrameNumber() * fileClient.getProperties().getFrameSize());
+            raf.write(frame.getContent());
+            raf.close();
+            ctx.writeAndFlush(new FrameConfirmMessage(frame.getTasklistid()));
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+ru.geekbrains.cloudstorage.client
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.client;
+
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import ru.geekbrains.cloudstorage.client.handlers.MessageHandlerClient;
+import ru.geekbrains.cloudstorage.common.message.*;
+
+import java.util.LinkedList;
+
+
+public class FileClient {
+    private LoginProperties properties;
+    private FileClient fileClient;
+    private LinkedList<Message> messageList;
+
+    public FileClient() {
+        this.properties = null;
+        fileClient = this;
+        this.messageList = new LinkedList<>();
+    }
+
+    public static void main(String[] args) throws Exception{
+        new FileClient().start();
+
+    }
+
+    public LoginProperties getProperties() {
+        return properties;
+    }
+
+    public void setProperties(LoginProperties properties) {
+        this.properties = properties;
+    }
+
+    public LinkedList<Message> getMessageList() {
+        return messageList;
+    }
+
+    public void start() throws Exception{
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+        try{
+            Bootstrap b = new Bootstrap();
+            b.group(workerGroup);
+            b.channel(NioSocketChannel.class);
+            b.option(ChannelOption.SO_KEEPALIVE,true);
+            b.handler(new ChannelInitializer<SocketChannel>() {
+                @Override
+                protected void initChannel(SocketChannel socketChannel) throws Exception {
+                    socketChannel.pipeline().addLast(
+                            new ObjectDecoder(1024 * 1024 * 100, ClassResolvers.cacheDisabled(null)),
+                            new ObjectEncoder(),
+                            new MessageHandlerClient(fileClient)
+                    );
+                }
+            });
+
+            ChannelFuture f = b.connect("localhost",8189).sync();
+
+            f.channel().writeAndFlush(new LoginMessage("login1","login1"));
+
+//LoginProperties{login='login1', homeDirectory='/home/grvsa/Загрузки/login1/', userStorage=67108864, frameSize=8192, availableThreads=1}
+
+            Thread.sleep(1500);
+
+            System.out.println(properties);
+
+//            Тест загрузки файла на сервер
+
+//            String homedir = properties.getHomeDirectory();
+//            String pathDir = "12/";
+//            String filename = "testfile25000-4frames.txt";
+//            String fullpath = homedir + pathDir + filename;
+//            BasicFileAttributes attr = Files.readAttributes(Paths.get(fullpath),BasicFileAttributes.class);
+//
+//
+//            long size = Files.size(Paths.get(fullpath));
+//            long creationTime = attr.creationTime().toMillis();
+//            long modificationTime = Files.getLastModifiedTime(Paths.get(fullpath),LinkOption.NOFOLLOW_LINKS).toMillis();
+//
+//            FileItem item = new FileItem(-1L,
+//                    filename,
+//                    pathDir,
+//                    size,
+//                    creationTime,
+//                    modificationTime,
+//                    0);
+//
+//
+//            f.channel().writeAndFlush(new UploadRequestMessage(item));
+
+//            Тест загрузки файла на клиент
+
+            f.channel().writeAndFlush(new DownloadRequestMessage(14L));
+
+            f.channel().closeFuture().sync();
+        }finally {
+            workerGroup.shutdownGracefully();
+        }
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+
+Сервер:
+-------------------------------------------------------------------------------------------------------------
+ru.geekbrains.cloudstorage.server.handlers
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.server.handlers;
+
+
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
+import ru.geekbrains.cloudstorage.common.message.Message;
+import ru.geekbrains.cloudstorage.server.FileServer;
+
+public class MessageHandlerServer extends ChannelInboundHandlerAdapter {
+    private FileServer s;
+    private OperationThreadServer thread;
+
+    public MessageHandlerServer(FileServer s) {
+        super();
+        this.thread = null;
+        this.s = s;
+
+    }
+
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("Some client Connected");
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        System.out.println("Something received");
+        try {
+            if (msg != null) {
+                Message m = (Message) msg;
+                if (m.getType() == Message.Type.LOGIN){
+                    thread = new OperationThreadServer(s,ctx);
+                    thread.start();
+                }else if (m.getType() == Message.Type.DISCONNECT){
+                    thread.interrupt();
+                    ctx.close();
+                }
+                s.getList().addLast(m);
+            } else {
+                return;
+            }
+        }finally {
+            ReferenceCountUtil.release(msg);
+        }
+    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        ctx.flush();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.server.handlers;
+
+import io.netty.channel.ChannelHandlerContext;
+import ru.geekbrains.cloudstorage.common.message.*;
+import ru.geekbrains.cloudstorage.server.FileServer;
+import ru.geekbrains.cloudstorage.server.StorageDAO;
+
+public class OperationThreadServer extends Thread{
+    private FileServer fileServer;
+    private ChannelHandlerContext ctx;
+    private LoginProperties properties;
+    boolean stop;
+
+    public OperationThreadServer(FileServer fileServer, ChannelHandlerContext ctx) {
+        this.properties = null;
+        this.fileServer = fileServer;
+        this.ctx = ctx;
+        this.stop = false;
+    }
+
+    @Override
+    public void run() {
+        while (!stop && !isInterrupted()){
+            Message msg = null;
+            if (!fileServer.getList().isEmpty()){
+                msg = fileServer.getList().removeFirst();
+                switch (msg.getType()){
+                    case LOGIN:
+                        login(msg);
+                        break;
+                    case DISCONNECT:
+                        disconnect();
+                        break;
+                    case FRAMECONFIRM:
+                        removeTask(((FrameConfirmMessage) msg).getTasklistid());
+                        break;
+                    case UPLOAD:
+                        fileUploadRequest((UploadRequestMessage) msg);
+                        break;
+                    case DOWNLOAD:
+                        fileDownloadRequest((DownloadRequestMessage) msg);
+                        break;
+                    case FRAME:
+                        addFrame((FrameMessage) msg);
+                        removeTask(((FrameMessage) msg).getTasklistid());
+                        break;
+                    default:
+                        System.out.println(msg.getType());
+                        break;
+                }
+
+                Message task = StorageDAO.getInstance().getTask(properties.getLogin());
+                if (task != null){
+                    ctx.writeAndFlush(task);
+                }
+            }
+        }
+    }
+
+    private void fileDownloadRequest(DownloadRequestMessage msg) {
+        FileItem item = StorageDAO.getInstance().getFile(msg.getFileId(), properties.getLogin());
+        StorageDAO.getInstance().addDownloadTasks(item.getFileId(),
+                item.getFileSize(),
+                properties.getFrameSize(),
+                properties.getLogin());
+    }
+
+    private void addFrame(FrameMessage message){
+        StorageDAO.getInstance().addFrame(message.getItem().getFileId(),
+                properties.getLogin(),message.getFrameNumber(),message.getContent());
+    }
+    private void fileUploadRequest(UploadRequestMessage message){
+        FileItem item = message.getItem();
+        long id = StorageDAO.getInstance().addFile(
+                properties.getLogin(),
+                item.getFileName(),
+                item.getFilePath(),
+                item.getFileSize(),
+                item.getFileCreationDate(),
+                item.getFileModificationDate()
+        );
+
+        StorageDAO.getInstance().addUploadTasks(id,
+                item.getFileSize(),
+                properties.getFrameSize(),
+                properties.getLogin());
+    }
+
+    private void disconnect(){
+        stop = true;
+        interrupt();
+    }
+
+    private void login(Message message){
+        LoginMessage loginMessage = (LoginMessage) message;
+
+        Message reply = StorageDAO.getInstance().loginCheck(loginMessage.getLogin(),loginMessage.getPassword());
+        if (reply.getType() == Message.Type.LOGINPROPERTIES){
+            properties = (LoginProperties) reply;
+        }
+        ctx.writeAndFlush(reply);
+    }
+
+    private void removeTask(long id){
+        StorageDAO.getInstance().removeTask(id, properties.getLogin());
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+ru.geekbrains.cloudstorage.server
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.server;
+
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import ru.geekbrains.cloudstorage.common.message.Message;
+import ru.geekbrains.cloudstorage.server.handlers.MessageHandlerServer;
+
+import java.util.LinkedList;
+
+public class FileServer {
+
+    public LinkedList<Message> getList() {
+        return list;
+    }
+
+    private LinkedList<Message> list;
+    private int port;
+
+    public FileServer(int port) {
+        this.port = port;
+    }
+
+    public void start() throws Exception{
+        list = new LinkedList<>();
+        FileServer m = this;
+
+        EventLoopGroup bossGroup = new NioEventLoopGroup();
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+        try{
+            ServerBootstrap b = new ServerBootstrap();
+            b.group(bossGroup,workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+                        @Override
+                        protected void initChannel(SocketChannel socketChannel) throws Exception {
+                            socketChannel.pipeline().addLast(
+                                    new ObjectDecoder(1024 * 1024 * 100, ClassResolvers.cacheDisabled(null)),
+                                    new ObjectEncoder(),
+                                    new MessageHandlerServer(m));
+                        }
+                    }).option(ChannelOption.SO_BACKLOG,128)
+                    .childOption(ChannelOption.SO_KEEPALIVE,true);
+
+            ChannelFuture f = b.bind(port).sync();
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+
+                }
+            }).start();
+
+            f.channel().closeFuture().sync();
+        }finally {
+            workerGroup.shutdownGracefully();
+            bossGroup.shutdownGracefully();
+        }
+    }
+
+    public static void main(String[] args) throws Exception{
+        new FileServer(8189).start();
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.server;
+
+import ru.geekbrains.cloudstorage.common.message.*;
+
+import java.sql.*;
+
+public class StorageDAO {
+    private static StorageDAO ourInstance = new StorageDAO();
+
+    public static StorageDAO getInstance() {
+        return ourInstance;
+    }
+
+    private StorageDAO() {
+        try {
+            this.connection = DriverManager.getConnection(
+                    "jdbc:mysql://localhost:3306/fileserverdb?characterEncoding=UTF-8&allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&serverTimezone=UTC","root","root");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /*
+    CREATE SCHEMA `fileserverdb` DEFAULT CHARACTER SET utf8 ;
+
+    - Таблица с зарегистрироваными пользователями
+        CREATE TABLE `userstable` (
+          `userid` int(11) NOT NULL AUTO_INCREMENT,
+          `username` varchar(45) NOT NULL,
+          `userpassword` varchar(45) NOT NULL,
+          `homedirectory` varchar(45) NOT NULL,
+          `userstoragesize` int(11) NOT NULL,
+          `userframesize` int(11) NOT NULL,
+          `userthreadcount` int(11) NOT NULL,
+          PRIMARY KEY (`userid`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8
+
+    - Таблица с правами доступа
+        CREATE TABLE `useraccesstable` (
+          `accessid` int(11) NOT NULL AUTO_INCREMENT,
+          `owner` varchar(45) NOT NULL,
+          `user` varchar(45) NOT NULL,
+          `accesstype` int(11) NOT NULL,
+          PRIMARY KEY (`accessid`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8
+
+    - Таблица файлов пользователя
+        CREATE TABLE `login1files` (
+          `filesid` int(11) NOT NULL AUTO_INCREMENT,
+          `filename` varchar(256) NOT NULL,
+          `filepath` varchar(45) NOT NULL,
+          `filesize` bigint(19) NOT NULL,
+          `filecreationdate` bigint(19) NOT NULL,
+          `filemodificationdate` bigint(19) NOT NULL,
+          `framesloaded` bigint(19) NOT NULL,
+          `filestatus` bigint(19) NOT NULL,
+          PRIMARY KEY (`filesid`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8
+
+    - Таблица содержимого файлов
+        CREATE TABLE `login1frames` (
+          `frameid` int(11) NOT NULL AUTO_INCREMENT,
+          `fileid` bigint(19) NOT NULL,
+          `framenumber` bigint(19) NOT NULL,
+          `frame` blob NOT NULL,
+          PRIMARY KEY (`frameid`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=169 DEFAULT CHARSET=utf8
+
+    - Таблица заданий
+        CREATE TABLE `login1tasklist` (
+          `tasklistid` int(11) NOT NULL AUTO_INCREMENT,
+          `taskaction` int(11) NOT NULL,
+          `fileid` bigint(19) NOT NULL,
+          `taskstatus` tinyint(4) NOT NULL,
+          `framenumber` bigint(19) NOT NULL,
+          PRIMARY KEY (`tasklistid`)
+        ) ENGINE=InnoDB AUTO_INCREMENT=2523 DEFAULT CHARSET=utf8
+*/
+
+    private Connection connection;
+
+    public Message loginCheck(String login, String password){
+        Message result = null;
+        try {
+            PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM userstable WHERE username = ?"
+            );
+            statement.setString(1, login);
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()) {
+                if (resultSet.getString(3).equals(password)) {
+                    result = new LoginProperties(login,
+                            resultSet.getString(4),
+                            resultSet.getLong(5),
+                            resultSet.getLong(6),
+                            resultSet.getInt(7)
+                    );
+                } else {
+                    result = new LoginNgMessage("Password not match");
+                }
+            } else {
+                result = new LoginNgMessage("User not registered");
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+            result = new LoginNgMessage("SQL Exception happend");
+        }
+        System.out.println(result);
+        return result;
+    }
+
+    public void removeTask(long id, String login){
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "DELETE FROM " + login + "tasklist WHERE tasklistid = ?"
+            );
+//            statement.setString(1,login);
+            statement.setLong(1,id);
+            statement.execute();
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+    public Message getTask(String login){
+        Message result = null;
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM " + login + "tasklist WHERE taskstatus = true"
+            );
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()){
+                long tasklistid = resultSet.getLong(1);
+                long taskaction = resultSet.getLong(2);
+                long fileid = resultSet.getLong(3);
+                boolean taskstatus = resultSet.getBoolean(4);
+                long framenumber = resultSet.getLong(5);
+
+                FileItem item = getFile(fileid,login);
+                System.out.println("DAO getTask " + item + " " + fileid);
+                if (taskaction == 1){
+//                    UPLOAD
+                    result = new FrameRequestMessage(item, framenumber, tasklistid);
+                }else if(taskaction == 2){
+//                    DOWNLOAD
+                    result = new FrameMessage(tasklistid,item,framenumber,getFrame(fileid,framenumber,login));
+                }
+
+//                Помечаем таск как принятый к исполнению
+                statement = connection.prepareStatement("UPDATE "+ login + "tasklist SET taskstatus = ? WHERE tasklistid = ?");
+                statement.setBoolean(1,false);
+                statement.setLong(2,tasklistid);
+                statement.executeUpdate();
+            }
+
+
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public FileItem getFile(long id, String login){
+        FileItem result = null;
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM " + login + "files WHERE filesid = ?"
+            );
+            statement.setLong(1,id);
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()){
+                result = new FileItem(id,
+                        resultSet.getString(2),
+                        resultSet.getString(3),
+                        resultSet.getLong(4),
+                        resultSet.getLong(5),
+                        resultSet.getLong(6),
+                        resultSet.getLong(7)
+                        );
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public byte[] getFrame(long id, long framenumber, String login){
+        byte[] result = null;
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "SELECT * FROM " + login + "frames WHERE fileid = ? AND framenumber = ?"
+            );
+            statement.setLong(1,id);
+            statement.setLong(2,framenumber);
+            ResultSet resultSet = statement.executeQuery();
+            if (resultSet.next()){
+                result = resultSet.getBytes(4);
+            }
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    public void addFrame(long fileid, String login, long framenumber, byte[] array){
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "INSERT INTO " + login + "frames(fileid, framenumber, frame) VALUES(?,?,?)"
+            );
+
+            statement.setLong(1,fileid);
+            statement.setLong(2,framenumber);
+            statement.setBytes(3,array);
+            statement.execute();
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+    public void removeFrames(long fileid, String login){
+        try{
+            PreparedStatement statement = connection.prepareStatement(
+                    "DELETE FROM " + login + "frames WHERE fileid = ?"
+            );
+            statement.setLong(1,fileid);
+            statement.execute();
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+    public void addUploadTasks(long fileid, long filesize, long framesize, String login){
+        long frames = (long) Math.ceil(filesize / 1.0 / framesize);
+        String sql = "INSERT INTO " + login + "tasklist(taskaction, fileid, taskstatus, framenumber) VALUES(?,?,?,?)";
+        try {
+            PreparedStatement statement = connection.prepareStatement(sql);
+            for (long i = 0; i < frames; i++) {
+                statement.setLong(1,1);
+                statement.setLong(2,fileid);
+                statement.setBoolean(3,true);
+                statement.setLong(4,i);
+
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+    public void addDownloadTasks(long fileid, long filesize, long framesize, String login){
+        long frames = (long) Math.ceil(filesize / 1.0 / framesize);
+        String sql = "INSERT INTO " + login + "tasklist(taskaction, fileid, taskstatus, framenumber) VALUES(?,?,?,?)";
+        try {
+            PreparedStatement statement = connection.prepareStatement(sql);
+            for (long i = 0; i < frames; i++) {
+
+                statement.setLong(1,2);
+                statement.setLong(2,fileid);
+                statement.setBoolean(3,true);
+                statement.setLong(4,i);
+
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+    }
+
+    public long addFile(String login, String filename, String filepath, long filesize, long filecreationdate, long filemodificationdate){
+        String sql = "INSERT INTO " + login + "files " +
+                "(filename, filepath, filesize, filecreationdate, filemodificationdate,framesloaded,filestatus)" +
+                "VALUES(?,?,?,?,?,?,?)";
+        long result = -1L;
+        try {
+            PreparedStatement statement = connection.prepareStatement(sql,Statement.RETURN_GENERATED_KEYS);
+            statement.setString(1,filename);
+            statement.setString(2,filepath);
+            statement.setLong(3,filesize);
+            statement.setLong(4,filecreationdate);
+            statement.setLong(5,filemodificationdate);
+            statement.setLong(6,0);
+            statement.setLong(7,0);
+
+            statement.executeUpdate();
+            ResultSet rs = statement.getGeneratedKeys();
+            if (rs.next()){
+                result = rs.getInt(1);
+            }
+
+        }catch (SQLException e){
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+Common:
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+import java.io.Serializable;
+
+public abstract class Message implements Serializable {
+    public enum Type{
+        DISCONNECT,
+        FRAMECONFIRM,
+        UPLOAD,
+        DOWNLOAD,
+        FILELIST,
+        FILELISTREQUEST,
+        FRAME,
+        FRAMEREQUEST,
+        LOGIN,
+        LOGINPROPERTIES,
+        LOGINNG;
+    }
+    public abstract Type getType();
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class DisconnectMessage extends Message {
+    @Override
+    public Type getType() {
+        return Type.DISCONNECT;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class DownloadRequestMessage extends Message {
+    private long fileId;
+
+    public DownloadRequestMessage(long fileId) {
+        this.fileId = fileId;
+    }
+
+    public long getFileId() {
+        return fileId;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.DOWNLOAD;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+import java.io.Serializable;
+
+public class FileItem implements Serializable {
+    private long fileId;
+    private String fileName;
+    private String filePath;
+    private long fileSize;
+    private long fileCreationDate;
+    private long fileModificationDate;
+    private long fileStatus;
+
+    public FileItem(long fileId, String fileName, String filePath, long fileSize, long fileCreationDate, long fileModificationDate, long fileStatus) {
+        this.fileId = fileId;
+        this.fileName = fileName;
+        this.filePath = filePath;
+        this.fileSize = fileSize;
+        this.fileCreationDate = fileCreationDate;
+        this.fileModificationDate = fileModificationDate;
+        this.fileStatus = fileStatus;
+    }
+
+    public long getFileId() {
+        return fileId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public String getFilePath() {
+        return filePath;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public long getFileCreationDate() {
+        return fileCreationDate;
+    }
+
+    public long getFileModificationDate() {
+        return fileModificationDate;
+    }
+
+    public long getFileStatus() {
+        return fileStatus;
+    }
+
+    @Override
+    public String toString() {
+        return "FileItem{" +
+                "fileId=" + fileId +
+                ", fileName='" + fileName + '\'' +
+                ", filePath='" + filePath + '\'' +
+                ", fileSize=" + fileSize +
+                ", fileCreationDate=" + fileCreationDate +
+                ", fileModificationDate=" + fileModificationDate +
+                ", fileStatus=" + fileStatus +
+                '}';
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class FileListMessage extends Message {
+    private List<FileItem> list;
+
+    public FileListMessage() {
+        list = new ArrayList<>();
+    }
+
+    public void addItem(FileItem i){
+        list.add(i);
+    }
+
+    public List<FileItem> getList() {
+        return list;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.FILELIST;
+    }
+
+
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class FileListRequestMessage extends Message {
+    @Override
+    public Type getType() {
+        return Type.FILELISTREQUEST;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class FrameConfirmMessage extends Message {
+    private long tasklistid;
+
+    public FrameConfirmMessage(long tasklistid) {
+        this.tasklistid = tasklistid;
+    }
+
+    public long getTasklistid() {
+        return tasklistid;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.FRAMECONFIRM;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class FrameMessage extends Message {
+    private long tasklistid;
+    private FileItem item;
+    private long frameNumber;
+    private byte[] content;
+
+    public FrameMessage(long tasklistid, FileItem item, long frameNumber, byte[] content) {
+        this.tasklistid = tasklistid;
+        this.item = item;
+        this.frameNumber = frameNumber;
+        this.content = content;
+    }
+
+    public long getTasklistid() {
+        return tasklistid;
+    }
+
+    public FileItem getItem() {
+        return item;
+    }
+
+    public long getFrameNumber() {
+        return frameNumber;
+    }
+
+    public byte[] getContent() {
+        return content;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.FRAME;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class FrameRequestMessage extends Message {
+    private FileItem item;
+    private long framenumber;
+    private long tasklistid;
+
+    public FrameRequestMessage(FileItem item, long framenumber, long tasklistid) {
+        this.item = item;
+        this.framenumber = framenumber;
+        this.tasklistid = tasklistid;
+    }
+
+    public long getTasklistid() {
+        return tasklistid;
+    }
+
+    public FileItem getItem() {
+        return item;
+    }
+
+    public long getFramenumber() {
+        return framenumber;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.FRAMEREQUEST;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class LoginMessage extends Message {
+    private String login;
+    private String password;
+
+    public LoginMessage(String login, String password) {
+        this.login = login;
+        this.password = password;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.LOGIN;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class LoginNgMessage extends Message {
+    private String reason;
+
+    public LoginNgMessage(String reason) {
+        this.reason = reason;
+    }
+
+    public String getReason() {
+        return reason;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.LOGINNG;
+    }
+
+    @Override
+    public String toString() {
+        return "LoginNgMessage{" +
+                "reason='" + reason + '\'' +
+                '}';
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class LoginProperties extends Message {
+    private String login;
+    private String homeDirectory;
+    private long userStorage;
+    private long frameSize;
+    private int availableThreads;
+
+    public LoginProperties() {
+    }
+
+    public LoginProperties(String login, String homeDirectory, long userStorage, long frameSize, int availableThreads) {
+        this.login = login;
+        this.homeDirectory = homeDirectory;
+        this.userStorage = userStorage;
+        this.frameSize = frameSize;
+        this.availableThreads = availableThreads;
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public String getHomeDirectory() {
+        return homeDirectory;
+    }
+
+    public long getUserStorage() {
+        return userStorage;
+    }
+
+    public long getFrameSize() {
+        return frameSize;
+    }
+
+    public int getAvailableThreads() {
+        return availableThreads;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.LOGINPROPERTIES;
+    }
+
+    @Override
+    public String toString() {
+        return "LoginProperties{" +
+                "login='" + login + '\'' +
+                ", homeDirectory='" + homeDirectory + '\'' +
+                ", userStorage=" + userStorage +
+                ", frameSize=" + frameSize +
+                ", availableThreads=" + availableThreads +
+                '}';
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+package ru.geekbrains.cloudstorage.common.message;
+
+public class UploadRequestMessage extends Message {
+    private FileItem item;
+
+    public UploadRequestMessage(FileItem item) {
+        this.item = item;
+    }
+
+    public FileItem getItem() {
+        return item;
+    }
+
+    @Override
+    public Type getType() {
+        return Type.UPLOAD;
+    }
+}
+-------------------------------------------------------------------------------------------------------------
+
