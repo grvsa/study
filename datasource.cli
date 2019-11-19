@@ -1,0 +1,15 @@
+# Go to link for more info https://docs.jboss.org/author/display/AS71/CLI+Recipes#CLIRecipes-ScriptedConfiguration
+
+# 1. creating datasource section in standalone.xml config
+data-source add \
+    --jndi-name=java:/jboss/datasources/MySQLDS \
+    --name=MySQLDS \
+    --connection-url=jdbc:mysql://localhost:3306/javaee_shop_db?createDatabaseIfNotExist=true&allowPublicKeyRetrieval=true&useSSL=false&useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC \
+    --driver-name=mysql \
+    --user-name=root \
+    --password=root
+
+# 2. restarting Wildfly server
+:reload
+
+#bash ~/wildfly-17.0.1.Final/bin/jboss-cli.sh --connect --file=datasource.cli
