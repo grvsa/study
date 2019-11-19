@@ -1,0 +1,48 @@
+# For a quick start check out our HTTP Requests collection (Tools|HTTP Client|Open HTTP Requests Collection).
+#
+# Following HTTP Request Live Templates are available:
+# * 'gtrp' and 'gtr' create a GET request with or without query parameters;
+# * 'ptr' and 'ptrp' create a POST request with a simple or parameter-like body;
+# * 'mptr' and 'fptr' create a POST request to submit a form with a text or file field (multipart/form-data);
+
+### Categories
+
+GET http://localhost:8080/webshop/api/categories/all
+
+###
+
+POST http://localhost:8080/webshop/api/categories/Еда/add
+
+###
+
+DELETE http://localhost:8080/webshop/api/categories/9/delete
+
+### Products
+
+GET http://localhost:8080/webshop/api/products/all
+
+###
+
+GET http://localhost:8080/webshop/api/products/5/id
+
+###
+
+GET http://localhost:8080/webshop/api/products/8/id
+
+###
+
+GET http://localhost:8080/webshop/api/products/Макасины/name
+
+###
+
+GET http://localhost:8080/webshop/api/products/7/category
+
+###
+
+DELETE http://localhost:8080/webshop/api/products/8/delete
+
+###
+
+POST http://localhost:8080/webshop/api/products/Букварь/8/Первая книга/739.1/12/add
+
+###
