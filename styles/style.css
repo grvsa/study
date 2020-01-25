@@ -1,0 +1,71 @@
+body {
+	background: #f8f8f8;
+}
+
+#menu {
+	list-style-type: none;
+}
+
+li a {
+	color: gray;
+	font-size: 16px;
+}
+
+.titles {
+	color: black;
+	font-size: 18px;
+	font-weight: 400;
+	background: #eaeaea;
+}
+
+.short_desc {
+	color: #707070;
+	font-size: 14px;
+	font-style: italic;
+	line-height: 16px;
+}
+
+.full_desc {
+	color: #484343;
+	font-size: 16px;
+	font-weight: 400;
+	text-align: left;
+	line-height: 24px;
+}
+
+input[type="text"]{
+	width: 300px;
+	height: 18px;
+	color: #484343;
+	font-size: 16px;
+	font-weight: 400;
+	text-align: left;
+	line-height: 24px;
+}
+
+.field {
+	clear:both; 
+	text-align:right;
+	line-height:25px;
+}
+
+label {
+	float:left;
+	padding-right:10px;
+}
+
+textarea {
+	width: 400px;
+	height: 100px;
+}
+
+.mlist {
+	list-style-image: url(../img/marker.png);
+}
+
+img {
+	border: 1px solid #888888;
+}
+
+
+
