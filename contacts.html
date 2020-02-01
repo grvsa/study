@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Контакты</title>
+	<link rel="stylesheet" type="text/css" href="styles/style.css">
+</head>
+<body>
+	<div class="header">
+		<!-- Header -->
+		<img src="img/briks.png" id="logo" alt="briks.png" height="98">
+
+		<ul id="menu">
+			<li><a href="index.html">Главная</a></li>
+			<li><a href="catalog.html">Каталог</a></li>
+			<li><a href="contacts.html">Контакты</a></li>
+			<li><a href="contacts.html">Контакты 2</a></li>
+		</ul>
+		
+	</div>
+	<hr>
+	<!-- Body -->
+	<hr>
+	<form action="question" method="post" style="width: 430px;">
+		<fieldset>
+			<legend>«Напишите нам»</legend>
+			<div class="main">
+
+				<div class="field">
+					<label for="idFIO">ФИО</label>
+					<input type="text" id="idFIO" name="FIO" placeholder="Ваше имя">
+				</div>
+
+				<div class="field">
+					<label for="idmail">E-Mail</label>
+					<input type="text" id="idmail" name="mail" placeholder="Ваш email">
+				</div>
+
+				Пол М <input type="radio" name="sex" checked>
+				Ж <input type="radio" name="sex"><br>
+
+				<div class="field">
+					<label for="idquestion">Заголовок</label>
+					<input type="text" id="idquestion" name="question" placeholder="Заголовок">
+				</div>
+
+				<label for="idcontent">Вопрос</label><br>
+				<textarea name="content" id="idcontent" placeholder="Ваш вопрос ..."></textarea><br>
+				<div class="field">
+					<label for="idnews">Подписаться на рассылку</label>
+					<input type="checkbox" id="idnews" name="news" checked><br>
+				</div>
+				<input type="submit" name="subBtn"><input type="reset" name="">
+			</div>
+		</fieldset>
+
+
+	</form><br>
+	<h3 class="titles">Адрес</h3>
+	<p class="full_desc">
+		Садоводческое некоммерческое товарищество Ягодка, 47 <br>
+		Балабаново, Боровский район, Калужская область, Россия <br>
+	</p>
+	<h3 class="titles">Часы работы</h3>
+	<ul>
+		<li>Пн. 8:00 ~ 21:00</li>
+		<li>Вт. 8:00 ~ 21:00</li>
+		<li>Ср. 8:00 ~ 21:00</li>
+		<li>Чт. 8:00 ~ 21:00</li>
+		<li>Пт. 8:00 ~ 21:00</li>
+		<li>Сб. 8:00 ~ 19:00</li>
+		<li>Вс. 9:00 ~ 16:00</li>
+	</ul>
+	<h3 class="titles">Контакты</h3>
+	<ul>
+		<li>Тел: +7(123)456-78-90</li>
+		<li>E-Mail: briks@briks.br</li>
+	</ul>
+	<h3 class="titles">Схема проезда</h3>
+	<iframe src="https://yandex.ru/map-widget/v1/?um=constructor%3Aa91046b0f77ab40ce0f5fa5605b1340a45b837f0ae965c5ba72ae7fa2324c1b9&amp;source=constructor" width="756" height="426" frameborder="0"></iframe>
+
+
+	<hr>
+
+	<div class="footer">
+		<!-- Footer -->
+		<p>«Все права защищены»&copy;</p>
+	</div>
+
+</body>
+</html>
