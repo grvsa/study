@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
+
+    <bean id="visitorcard" class="ru.geekbrains.spring.lesson1.VisitorCard" scope="prototype">
+        <property name="name" value="Ivan Ivanov"/>
+    </bean>
+
+    <bean id="dentist" class="ru.geekbrains.spring.lesson1.Dentist">
+        <property name="visitorCard">
+            <ref bean="visitorcard"/>
+        </property>
+    </bean>
+
+    <bean id="terapist" class="ru.geekbrains.spring.lesson1.Terapist" scope="prototype">
+        <property name="visitorCard">
+            <ref bean="visitorcard"/>
+        </property>
+    </bean>
+
+    <bean id="ambulance" class="ru.geekbrains.spring.lesson1.Ambulance">
+        <property name="visitorCard">
+            <ref bean="visitorcard"/>
+        </property>
+    </bean>
+
+</beans>
