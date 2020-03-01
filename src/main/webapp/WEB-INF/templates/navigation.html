@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+</body>
+<nav th:fragment="navigation(activeTab)">
+    <a href="#">BooksSpring</a>
+    <div>
+        <ul>
+            <li th:classappend="${activeTab == 'Home' ? 'active' : ''}">
+                <a th:href="@{/}">Home</a>
+            </li>
+            <li th:classappend="${activeTab == 'Books' ? 'active' : ''}">
+                <a href="/books/all">Books</a>
+            </li>
+            <li th:classappend="${activeTab == 'Add' ? 'active' : ''}">
+                <a href="/books/add">Book add</a>
+            </li>
+        </ul>
+    </div>
+</nav>
+</html>
