@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title>Add New Student</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+
+<html>
+<body>
+<div>
+    <nav>
+        <div th:replace="~{navigation :: navigation(Add)}">
+        </div>
+    </nav>
+    <div style="height:80px;"> </div>
+</div>
+
+<form th:action="@{/books/add}" th:object="${book}" method="post">
+    Book title: <input type="text" th:field="${book.title}"/>
+    <br>
+    Book description: <input type="text" th:field="${book.description}"/>
+    <br>
+    Year: <input type="text" th:field="${book.year}"/>
+    <br>
+    <div class="submit">
+        <button name="addBook" type="submit">Add book</button>
+    </div>
+
+</form>
+</body>
+<footer>
+    <div th:insert="~{footer :: foot}">
+    </div>
+</footer>
+</html>
