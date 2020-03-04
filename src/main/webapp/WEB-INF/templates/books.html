@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <title>Книги</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+<div>
+    <nav>
+        <div th:replace="~{navigation :: navigation(Books)}">
+        </div>
+    </nav>
+    <div style="height:80px;"> </div>
+</div>
+<div class="container">
+    <h1>Books List</h1>
+
+    <table>
+        <thead>
+            <tr>
+                <td>Id</td>
+                <td>Title</td>
+                <td>Description</td>
+                <td>Year</td>
+                <td >Remove</td>
+            </tr>
+        </thead>
+        <tr th:each="book : ${books}">
+            <td th:text="${book.id}"/>
+            <td th:text="${book.title}"/>
+            <td th:text="${book.description}"/>
+            <td th:text="${book.year}"/>
+            <td>
+                <a sec:authorize="hasRole('ADMIN')" th:href="@{'/books/remove/' + ${book.id}}" role="button">Remove</a>
+            </td>
+        </tr>
+    </table>
+</div>
+</body>
+<footer>
+    <div th:insert="~{footer :: foot}">
+    </div>
+</footer>
+</html>
